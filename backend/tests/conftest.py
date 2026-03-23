@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.db.base import Base
@@ -55,3 +56,11 @@ def db_session() -> MagicMock:
     session.delete = AsyncMock()
     session.execute = AsyncMock()
     return session
+
+
+@pytest.fixture
+async def client(setup_database: None) -> AsyncGenerator[AsyncClient, None]:
+    """Async HTTP client fixture."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        yield ac
