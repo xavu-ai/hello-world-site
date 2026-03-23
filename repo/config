@@ -1,9 +1,0 @@
-[core]
-	repositoryformatversion = 0
-	filemode = true
-	bare = true
-[remote "origin"]
-	url = https://github.com/xavu-ai/ai-website-builder.git
-[remote "local"]
-	url = /home/xavu/openclaw-projects/backend/ai-website-builder/repo
-	fetch = +refs/heads/*:refs/remotes/local/*
