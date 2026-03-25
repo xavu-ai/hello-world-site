@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  static-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:8000"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8000
+      - STATIC_DIR=/app/static
+      - STATIC_URL=/static
+      - CORS_ORIGINS=*
+    volumes:
+      # Mount local static files for development
+      - ./static:/app/static:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
