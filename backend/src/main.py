@@ -10,7 +10,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from config import get_settings
+from settings import get_settings
 
 settings = get_settings()
 
@@ -34,12 +34,33 @@ if settings.ENABLE_GZIP:
 
 
 @app.get("/")
-async def serve_index() -> FileResponse:
+async def serve_index(request: Request) -> Response:
     """Serve the index.html file at root."""
     index_path = Path(settings.STATIC_DIR) / "index.html"
     if not index_path.exists():
         raise HTTPException(status_code=404, detail="index.html not found")
-    return FileResponse(index_path, media_type="text/html")
+
+    # Generate ETag
+    file_content = index_path.read_bytes()
+    etag = f'"{hashlib.md5(file_content).hexdigest()}"'
+
+    # Check If-None-Match header for caching
+    if_none_match = request.headers.get("If-None-Match")
+    if if_none_match and if_none_match == etag:
+        return Response(status_code=304, headers={"ETag": etag})
+
+    # Use Starlette FileResponse with proper headers
+    from starlette.responses import FileResponse as StarletteFileResponse
+    return StarletteFileResponse(
+        path=str(index_path),
+        media_type="text/html",
+        headers={
+            "ETag": etag,
+            "Cache-Control": f"public, max-age={settings.MAX_AGE_SECONDS}",
+            "X-Content-Type-Options": "nosniff",
+            "X-Frame-Options": "DENY",
+        },
+    )
 
 
 @app.get("/health")
@@ -57,8 +78,8 @@ async def health_check() -> JSONResponse:
 @app.get("/static/{path:path}")
 async def serve_static(path: str, request: Request) -> Response:
     """Serve static files with proper MIME types and caching headers."""
-    # Security: prevent path traversal
-    if ".." in path or path.startswith("/"):
+    # Security: prevent path traversal (check for URL-encoded .. as well)
+    if ".." in path or path.startswith("/") or "%2e%2e" in path.lower():
         raise HTTPException(status_code=400, detail="Invalid path")
 
     file_path = Path(settings.STATIC_DIR) / path
@@ -96,23 +117,29 @@ async def serve_static(path: str, request: Request) -> Response:
 
     # Generate ETag
     file_content = file_path.read_bytes()
-    etag = hashlib.md5(file_content).hexdigest()
+    etag = f'"{hashlib.md5(file_content).hexdigest()}"'
 
     # Check If-None-Match header for caching
     if_none_match = request.headers.get("If-None-Match")
-    if if_none_match and if_none_match == f'"{etag}"':
-        return Response(status_code=304)
+    if if_none_match and if_none_match == etag:
+        return Response(status_code=304, headers={"ETag": etag})
 
-    # Build response with cache headers
-    response = FileResponse(
-        file_path,
+    # Build response using StreamingResponse to properly set headers
+    from starlette.datastructures import Headers
+    from starlette.responses import FileResponse as StarletteFileResponse
+
+    # Use Starlette's FileResponse which supports headers better
+    starlette_response = StarletteFileResponse(
+        path=str(file_path),
         media_type=media_type,
         headers={
-            "ETag": f'"{etag}"',
+            "ETag": etag,
             "Cache-Control": f"public, max-age={settings.MAX_AGE_SECONDS}",
+            "X-Content-Type-Options": "nosniff",
+            "X-Frame-Options": "DENY",
         },
     )
-    return response
+    return starlette_response
 
 
 # Mount additional static files directory if needed

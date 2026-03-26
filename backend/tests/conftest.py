@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 backend_path = Path(__file__).parent.parent
 sys.path.insert(0, str(backend_path))
 
-from src.server import app
+from src.main import app
 
 
 @pytest.fixture

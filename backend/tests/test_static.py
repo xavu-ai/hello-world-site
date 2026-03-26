@@ -43,7 +43,8 @@ class TestStaticFileServing:
 
     def test_path_traversal_protection(self):
         """Verify path traversal attacks are blocked."""
-        response = client.get("/static/../main.py")
+        # URL-encode the .. to bypass FastAPI's path normalization
+        response = client.get("/static/%2e%2e/main.py")
         assert response.status_code == 400
 
     def test_absolute_path_blocked(self):
