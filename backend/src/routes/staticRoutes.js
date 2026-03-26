@@ -10,7 +10,7 @@ const __dirname = path.dirname(__filename);
 const router = express.Router();
 const publicPath = path.join(__dirname, '../../public');
 
-router.use(express.static(publicPath, {
+router.use('/static', express.static(publicPath, {
   maxAge: config.staticAssets.maxAge.assets,
   etag: true,
   lastModified: true,

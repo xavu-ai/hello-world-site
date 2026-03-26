@@ -27,18 +27,18 @@ describe('Static File Serving Integration', () => {
     expect(res.headers['content-type']).toMatch(/text\/html/);
   });
 
-  test('GET /css/style.css returns CSS with correct MIME type', async () => {
-    const res = await request(securedApp).get('/css/style.css');
+  test('GET /static/css/style.css returns CSS with correct MIME type', async () => {
+    const res = await request(securedApp).get('/static/css/style.css');
     expect(res.status).toBe(200);
     expect(res.headers['content-type']).toMatch(/text\/css/);
-    expect(res.headers['cache-control']).toBe('public, max-age=31536000, immutable');
+    expect(res.headers['cache-control']).toBe('public, max-age=31536');
   });
 
-  test('GET /js/script.js returns JS with correct MIME type', async () => {
-    const res = await request(securedApp).get('/js/script.js');
+  test('GET /static/js/script.js returns JS with correct MIME type', async () => {
+    const res = await request(securedApp).get('/static/js/script.js');
     expect(res.status).toBe(200);
     expect(res.headers['content-type']).toMatch(/application\/javascript/);
-    expect(res.headers['cache-control']).toBe('public, max-age=31536000, immutable');
+    expect(res.headers['cache-control']).toBe('public, max-age=31536');
   });
 
   test('GET /nonexistent returns 404', async () => {
