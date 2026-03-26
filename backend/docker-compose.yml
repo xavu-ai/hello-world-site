@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   static-server:
-    build: ./backend
+    build: .
     ports:
       - "8000:8000"
     environment:
@@ -10,7 +10,7 @@ services:
       - LOG_LEVEL=INFO
       - ALLOWED_HOSTS=["example.com","www.example.com"]
     volumes:
-      - ./backend/static:/app/static:ro
+      - ./static:/app/static:ro
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
