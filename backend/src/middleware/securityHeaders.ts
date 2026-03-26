@@ -4,10 +4,7 @@ import helmet from 'helmet';
 /**
  * Apply security headers to all responses
  */
-export function securityHeaders(_req: Request, res: Response, next: NextFunction): void {
-  // Use helmet for comprehensive security headers
-  helmet()(_req, res, next);
-}
+export const securityHeaders = helmet();
 
 /**
  * Apply caching headers based on file type

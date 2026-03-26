@@ -2,7 +2,7 @@ import express, { Express } from 'express';
 import path from 'node:path';
 import compression from 'compression';
 import config from './config/server.js';
-import { securityHeaders, cachingHeaders, corsHeaders, removePoweredBy } from './middleware/securityHeaders.js';
+import { securityHeaders, cachingHeaders, corsHeaders } from './middleware/securityHeaders.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import staticRoutes from './routes/static.js';
 import logger from './utils/logger.js';
@@ -13,8 +13,11 @@ const app: Express = express();
 // Trust proxy (for when behind nginx/load balancer)
 app.set('trust proxy', 1);
 
-// Remove X-Powered-By header
-removePoweredBy(null as never, {} as never, () => {});
+// Remove X-Powered-By header (helmet already handles this, but doing it explicitly)
+app.use((_req, res, next) => {
+  res.removeHeader('X-Powered-By');
+  next();
+});
 
 // Global middleware
 app.use(compression());
