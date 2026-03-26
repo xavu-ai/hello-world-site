@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
-import { getMimeType, isTextBasedMimeType } from '../../src/middleware/mimeTypes.js';
+import { getMimeType, isTextBasedMimeType } from '../../src/middleware/mimeTypes.ts';
 
 describe('mimeTypes', () => {
   describe('getMimeType', () => {
@@ -13,7 +13,7 @@ describe('mimeTypes', () => {
     });
 
     it('should return correct MIME type for JavaScript', () => {
-      assert.strictEqual(getMimeType('script.js'), 'application/javascript; charset=utf-8');
+      assert.strictEqual(getMimeType('script.ts'), 'application/javascript; charset=utf-8');
     });
 
     it('should return correct MIME type for JSON', () => {

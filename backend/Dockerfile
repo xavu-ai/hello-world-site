@@ -6,8 +6,8 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies (production only for builder)
-RUN npm ci --only=production
+# Install dependencies (including devDependencies for build)
+RUN npm ci
 
 # Copy source and build
 COPY tsconfig.json ./
@@ -20,8 +20,8 @@ FROM node:20-alpine AS runtime
 WORKDIR /app
 
 # Create non-root user
-RUN addgroup -g 1000 -S appgroup && \
-    adduser -S appuser -u 1000 -G appgroup
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001
 
 # Copy built application from builder
 COPY --from=builder /app/node_modules ./node_modules
@@ -37,7 +37,7 @@ ENV PORT=3000
 ENV HOST=0.0.0.0
 
 # Change to non-root user
-USER appuser
+USER nodejs
 
 # Expose port
 EXPOSE 3000

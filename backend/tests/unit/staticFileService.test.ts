@@ -1,7 +1,7 @@
 import { describe, it, beforeEach, afterEach, mock } from 'node:test';
 import assert from 'node:assert';
-import { StaticFileService } from '../../src/services/staticFileService.js';
-import { FileNotFoundError, FileAccessError } from '../../src/types/index.js';
+import { StaticFileService } from '../../src/services/staticFileService.ts';
+import { FileNotFoundError, FileAccessError } from '../../src/types/index.ts';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';

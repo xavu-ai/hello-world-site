@@ -3,7 +3,8 @@ export default {
   transform: {
     '^.+\\.tsx?$': ['ts-jest', { 
       useESM: true
-    }]
+    }],
+    '^.+\\.js$': 'babel-jest'
   },
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'mjs'],
   testMatch: ['**/tests/unit/config.test.js', '**/tests/unit/middleware.test.js'],

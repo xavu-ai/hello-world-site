@@ -1,7 +1,7 @@
 import { describe, it, beforeEach, mock } from 'node:test';
 import assert from 'node:assert';
-import { validateAndResolvePath, isPathSafe } from '../../src/utils/pathValidator.js';
-import { InvalidPathError } from '../../src/types/index.js';
+import { validateAndResolvePath, isPathSafe } from '../../src/utils/pathValidator.ts';
+import { InvalidPathError } from '../../src/types/index.ts';
 
 describe('pathValidator', () => {
   const publicDir = '/var/www/public';
@@ -62,7 +62,7 @@ describe('pathValidator', () => {
     it('should return true for normal filenames', () => {
       assert.strictEqual(isPathSafe('file.txt'), true);
       assert.strictEqual(isPathSafe('styles.css'), true);
-      assert.strictEqual(isPathSafe('script.js'), true);
+      assert.strictEqual(isPathSafe('script.ts'), true);
       assert.strictEqual(isPathSafe('image.png'), true);
     });
 

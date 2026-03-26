@@ -68,15 +68,16 @@ router.get('/', async (_req: Request, res: Response) => {
 });
 
 /**
- * GET /:filename
- * Serve static file by name
+ * GET *
+ * Serve static files (catch-all route)
  */
-router.get('/:filename', async (req: Request, res: Response, next) => {
+router.get('*', async (req: Request, res: Response, next) => {
   try {
-    const { filename } = req.params;
+    // Use req.params['0'] for wildcard captures (Express wildcard * captures in params['0'])
+    const requestedPath = req.params['0'] || req.path;
 
-    // Prevent path traversal by validating filename
-    if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+    // Prevent path traversal by validating path
+    if (requestedPath.includes('..') || requestedPath.includes('\\')) {
       res.status(400).json({
         error: 'InvalidPathError',
         message: 'Invalid path: directory traversal not allowed',
@@ -86,7 +87,6 @@ router.get('/:filename', async (req: Request, res: Response, next) => {
       return;
     }
 
-    const requestedPath = `/${filename}`;
     const fileInfo = await staticFileService.getFileInfo(requestedPath);
 
     // Set appropriate headers
@@ -96,7 +96,7 @@ router.get('/:filename', async (req: Request, res: Response, next) => {
     res.setHeader('ETag', `"${fileInfo.size}-${fileInfo.lastModified.getTime()}"`);
 
     // Set cache headers based on file type
-    const ext = filename.toLowerCase().substring(filename.lastIndexOf('.'));
+    const ext = requestedPath.toLowerCase().substring(requestedPath.lastIndexOf('.'));
     if (['.css', '.js'].includes(ext)) {
       res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
     } else if (!['.html', '.htm'].includes(ext)) {
@@ -108,7 +108,7 @@ router.get('/:filename', async (req: Request, res: Response, next) => {
     readStream.pipe(res);
 
     readStream.on('error', (err) => {
-      logger.error('Error streaming file', { filename, error: err.message });
+      logger.error('Error streaming file', { requestedPath, error: err.message });
       if (!res.headersSent) {
         res.status(500).json({
           error: 'ServerError',
