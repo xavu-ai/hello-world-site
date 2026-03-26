@@ -1,7 +1,6 @@
 """Static file serving router."""
 
 import hashlib
-import os
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -57,75 +56,41 @@ def generate_etag(file_path: Path) -> str:
 
 def check_path_traversal(requested_path: Path, static_dir: Path) -> None:
     """Check for path traversal attempts and raise exception if detected."""
-    # Resolve the requested path and check if it's within static_dir
     try:
         resolved_path = requested_path.resolve()
         static_dir_resolved = static_dir.resolve()
     except (OSError, ValueError):
         raise PathTraversalError("Invalid path")
 
-    # Check that the resolved path is within static_dir
     try:
         resolved_path.relative_to(static_dir_resolved)
     except ValueError:
         raise PathTraversalError("Access denied")
 
 
-@router.get("/health")
-async def health_check() -> dict:
-    """Health check endpoint."""
-    return {
-        "status": "ok",
-        "timestamp": datetime.utcnow().isoformat() + "Z",
-    }
-
-
-@router.get(
-    "/static/{path:path}",
-    responses={
-        200: {"description": "Static file"},
-        403: {"description": "Path traversal attempt blocked"},
-        404: {"description": "File not found"},
-    },
-)
-async def serve_static_file(
-    path: str,
-    download: bool = Query(False, description="Force file download"),
-    settings: Settings = Depends(get_settings),
+def serve_file(
+    relative_path: str,
+    settings: Settings,
+    download: bool = False,
 ) -> Response:
-    """
-    Serve static files from the configured static directory.
-
-    - Validates path to prevent directory traversal attacks
-    - Supports optional file download via ?download=1 query param
-    - Returns proper Content-Type headers based on file extension
-    - Generates ETag for client-side caching
-    """
-    # Construct the full file path
-    requested_path = settings.static_dir / path
-
-    # Check for path traversal
+    """Helper to serve a file with proper headers and caching."""
+    requested_path = settings.static_dir / relative_path
     check_path_traversal(requested_path, settings.static_dir)
 
-    # Check if file exists
     if not requested_path.exists():
-        raise FileNotFoundError(path)
+        raise FileNotFoundError(relative_path)
 
     if not requested_path.is_file():
-        raise FileNotFoundError(path)
+        raise FileNotFoundError(relative_path)
 
-    # Get MIME type
     content_type = get_mime_type(requested_path)
-
-    # Generate ETag
     etag = generate_etag(requested_path)
 
-    # Determine if file should be downloaded or displayed
     content_disposition = "attachment" if download else None
 
     logger.info(
         "serving_static_file",
-        path=path,
+        path=relative_path,
         content_type=content_type,
     )
 
@@ -138,19 +103,25 @@ async def serve_static_file(
     )
 
 
-@router.get("/", response_class=FileResponse)
+@router.get("/health")
+async def health_check() -> dict:
+    """Health check endpoint."""
+    return {"status": "healthy"}
+
+
+@router.get("/")
 async def serve_index(settings: Settings = Depends(get_settings)) -> Response:
-    """
-    Serve index.html as the default page.
+    """Serve index.html as the default page."""
+    return serve_file("index.html", settings)
 
-    Returns index.html from the static directory root.
-    """
-    index_path = settings.static_dir / "index.html"
 
-    if not index_path.exists():
-        raise FileNotFoundError("index.html")
+@router.get("/css/{path:path}")
+async def serve_css(path: str, settings: Settings = Depends(get_settings)) -> Response:
+    """Serve CSS files."""
+    return serve_file(f"css/{path}", settings)
 
-    return FileResponse(
-        path=index_path,
-        media_type="text/html",
-    )
+
+@router.get("/js/{path:path}")
+async def serve_js(path: str, settings: Settings = Depends(get_settings)) -> Response:
+    """Serve JavaScript files."""
+    return serve_file(f"js/{path}", settings)

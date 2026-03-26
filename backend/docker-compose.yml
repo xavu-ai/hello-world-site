@@ -11,7 +11,6 @@ services:
       - HOST=0.0.0.0
       - PORT=8000
       - STATIC_DIR=/app/static
-      - STATIC_URL=/static
       - CORS_ORIGINS=*
     volumes:
       # Mount local static files for development

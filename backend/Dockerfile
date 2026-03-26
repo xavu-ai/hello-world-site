@@ -12,8 +12,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Stage 2: Production
 FROM python:3.11-slim
 
-# Create non-root user
-RUN groupadd -r appuser && useradd -r -g appuser appuser
+# Create non-root user with specific UID
+RUN groupadd -r appuser && useradd -r -u 1000 -g appuser appuser
 
 WORKDIR /app
 
@@ -23,10 +23,12 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application code
 COPY --chown=appuser:appuser src/ ./src/
-COPY --chown=appuser:appuser .env.example ./
 
-# Create static directory
-RUN mkdir -p /app/static && chown -R appuser:appuser /app
+# Copy static files
+COPY --chown=appuser:appuser static/ ./static/
+
+# Copy environment example
+COPY --chown=appuser:appuser .env.example ./
 
 USER appuser
 
@@ -39,4 +41,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 
 # Run the application
 ENV PYTHONUNBUFFERED=1
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "src.server:app", "--host", "0.0.0.0", "--port", "8000"]
