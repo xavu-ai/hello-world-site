@@ -1,50 +1,29 @@
-# Stage 1: Builder
-FROM node:20-alpine AS builder
+# Static file hosting using nginx:alpine
+FROM nginx:1.25-alpine-slim
 
-WORKDIR /app
+# Non-root user (nginx user exists in image - uid 101)
+# No additional user creation needed
 
-# Copy package files
-COPY package*.json ./
+# Environment defaults
+ENV NGINX_PORT=8080
+ENV STATIC_ROOT=/usr/share/nginx/html
 
-# Install dependencies (including devDependencies for build)
-RUN npm ci
+# Copy custom nginx configuration
+COPY nginx/nginx.conf /etc/nginx/nginx.conf
+COPY nginx/conf.d /etc/nginx/conf.d
 
-# Copy source and build
-COPY tsconfig.json ./
-COPY src ./src
-RUN npm run build
+# Copy static files
+COPY public/ ${STATIC_ROOT}/
 
-# Stage 2: Runtime
-FROM node:20-alpine AS runtime
-
-WORKDIR /app
-
-# Create non-root user
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nodejs -u 1001
-
-# Copy built application from builder
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/package*.json ./
-
-# Copy public directory for static files
-COPY public/ ./public/
-
-# Set environment variables
-ENV NODE_ENV=production
-ENV PORT=3000
-ENV HOST=0.0.0.0
-
-# Change to non-root user
-USER nodejs
+# Ensure non-root ownership
+RUN chown -R nginx:nginx ${STATIC_ROOT} /var/cache/nginx /var/log/nginx
 
 # Expose port
-EXPOSE 3000
+EXPOSE ${NGINX_PORT}
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1
+    CMD wget --no-verbose --tries=1 --spider http://localhost:${NGINX_PORT}/health || exit 1
 
-# Start the server
-CMD ["node", "dist/app.js"]
+# Start nginx
+CMD ["nginx", "-g", "daemon off;"]
