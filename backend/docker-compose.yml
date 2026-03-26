@@ -1,24 +1,50 @@
 version: '3.8'
 
 services:
-  static-server:
+  api:
     build:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "3000:8000"
+      - "8000:8000"
     environment:
       - HOST=0.0.0.0
       - PORT=8000
       - STATIC_DIR=/app/static
+      - STORAGE_PATH=/app/storage
+      - MAX_FILE_SIZE=104857600
+      - ALLOWED_TYPES=image/*,application/pdf,text/*
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/filesdb
       - CORS_ORIGINS=*
     volumes:
       # Mount local static files for development
       - ./static:/app/static:ro
-    restart: unless-stopped
+      # Persistent storage for uploaded files
+      - file-storage:/app/storage
+    depends_on:
+      db:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 3s
       retries: 3
       start_period: 10s
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=filesdb
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  file-storage:
+  postgres-data:

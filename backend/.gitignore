@@ -88,3 +88,12 @@ tmp/
 temp/
 .cache/
 coverage/
+
+# ---- Storage (local development) ----
+storage/
+!/storage/.gitkeep
+
+# ---- Alembic migrations ----
+alembic/versions/*.pyc
+__pycache__/
+*.pyc

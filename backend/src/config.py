@@ -28,6 +28,14 @@ class Settings(BaseSettings):
     # CORS settings (if needed)
     cors_origins: list[str] = ["*"]
 
+    # Storage settings
+    storage_path: Path = Path("/app/storage")
+    max_file_size: int = 104857600  # 100MB
+    allowed_types: str = "image/*,application/pdf,text/*"
+
+    # Database settings
+    database_url: Optional[str] = None
+
 
 @lru_cache
 def get_settings() -> Settings:

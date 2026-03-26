@@ -8,6 +8,7 @@ from .config import get_settings
 from .middleware.error import register_exception_handlers
 from .middleware.security import SecurityHeadersMiddleware
 from .routers.static import router as static_router
+from .api.routes.files import router as files_router
 
 # Configure structured logging
 structlog.configure(
@@ -33,7 +34,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title="Static File Server",
-        description="A simple static file server for serving HTML, CSS, and JavaScript files",
+        description="A static file server with file hosting capabilities",
         version="1.0.0",
         docs_url="/docs" if settings.reload else None,
         redoc_url="/redoc" if settings.reload else None,
@@ -56,6 +57,7 @@ def create_app() -> FastAPI:
 
     # Include routers
     app.include_router(static_router)
+    app.include_router(files_router)
 
     logger.info("app_started", port=settings.port, static_dir=str(settings.static_dir))
 
