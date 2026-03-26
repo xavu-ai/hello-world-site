@@ -1,18 +1,38 @@
 # Stage 1: Builder
-FROM python:3.11-slim AS builder
+FROM node:20-alpine AS builder
 WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
 
-# Stage 2: Runtime
-FROM python:3.11-slim
-RUN groupadd -r appuser && useradd -r -g appuser appuser
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm ci --only=production
+
+# Stage 2: Production
+FROM node:20-alpine-slim
+
+# Create non-root user
+RUN addgroup -g 1000 -S appgroup && \
+    adduser -u 1000 -S appuser -G appgroup
+
 WORKDIR /app
-COPY --from=builder --chown=appuser:appuser /root/.local /home/appuser/.local
-COPY --chown=appuser:appuser src/ ./src/
-ENV PATH=/home/appuser/.local/bin:$PATH
+
+# Copy node_modules from builder
+COPY --from=builder --chown=appuser:appgroup /app/node_modules ./node_modules
+
+# Copy application files
+COPY --chown=appuser:appgroup server.js ./
+COPY --chown=appuser:appgroup public/ ./public/
+
+# Switch to non-root user
 USER appuser
-EXPOSE 8000
+
+# Expose port from environment
+EXPOSE ${PORT:-3000}
+
+# Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    CMD node -e "require('http').get('http://localhost:${PORT:-3000}/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"
+
+# Start server
+CMD ["node", "server.js"]
