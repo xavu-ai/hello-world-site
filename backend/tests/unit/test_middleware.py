@@ -28,5 +28,6 @@ class TestSecurityMiddleware:
         assert "Strict-Transport-Security" in response.headers
     
     def test_cors_headers_present(self, client):
-        response = client.get("/")
+        # CORS headers are added when Origin header is present
+        response = client.get("/", headers={"Origin": "http://example.com"})
         assert "access-control-allow-origin" in response.headers

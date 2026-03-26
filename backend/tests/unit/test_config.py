@@ -5,17 +5,17 @@ from src.config import Settings, get_settings
 class TestSettings:
     def test_default_values(self):
         settings = Settings()
-        assert settings.ENV == "development"
-        assert settings.LOG_LEVEL == "INFO"
-        assert settings.STATIC_DIR == "static"
-        assert settings.ALLOWED_HOSTS == ["*"]
+        assert settings.env == "development"
+        assert settings.log_level == "INFO"
+        assert settings.static_dir == "static"
+        assert settings.allowed_hosts == ["*"]
     
     def test_env_override(self, monkeypatch):
         monkeypatch.setenv("ENV", "production")
         monkeypatch.setenv("LOG_LEVEL", "WARNING")
         settings = Settings()
-        assert settings.ENV == "production"
-        assert settings.LOG_LEVEL == "WARNING"
+        assert settings.env == "production"
+        assert settings.log_level == "WARNING"
     
     def test_get_settings_returns_cached(self):
         settings1 = get_settings()

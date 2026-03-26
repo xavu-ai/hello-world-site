@@ -11,7 +11,7 @@ from src.routers.static import router as static_router
 
 # Configure logging
 logging.basicConfig(
-    level=get_settings().LOG_LEVEL,
+    level=get_settings().log_level,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 
@@ -25,10 +25,6 @@ app = FastAPI(
 setup_security_middleware(app)
 setup_logging_middleware(app)
 
-# Include routers
-app.include_router(static_router)
-
-
 # Exception handlers
 @app.exception_handler(StaticFileError)
 async def static_file_exception_handler(request: Request, exc: StaticFileError):
@@ -38,13 +34,17 @@ async def static_file_exception_handler(request: Request, exc: StaticFileError):
     )
 
 
-# Health check endpoint
+# Health check endpoint (must be before include_router to take precedence)
 @app.get("/health")
 async def health_check():
     return {
         "status": "healthy",
         "timestamp": datetime.utcnow().isoformat()
     }
+
+
+# Include routers (after health endpoint so health takes precedence)
+app.include_router(static_router)
 
 
 if __name__ == "__main__":

@@ -9,7 +9,7 @@ class StaticFileService:
             self.static_dir = static_dir
         else:
             settings = get_settings()
-            self.static_dir = Path(settings.STATIC_DIR)
+            self.static_dir = Path(settings.static_dir)
     
     def get_file(self, path: str) -> Path:
         """

@@ -7,7 +7,7 @@ from src.services.static_service import StaticFileService
 router = APIRouter()
 service = StaticFileService()
 settings = get_settings()
-STATIC_DIR = Path(settings.STATIC_DIR)
+STATIC_DIR = Path(settings.static_dir)
 
 
 @router.get("/")
