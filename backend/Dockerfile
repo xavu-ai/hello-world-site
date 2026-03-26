@@ -1,45 +1,50 @@
 # Stage 1: Builder
-FROM python:3.12-slim AS builder
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Install build dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    && rm -rf /var/lib/apt/lists/*
+# Copy package files
+COPY package*.json ./
 
-# Install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir --user -r requirements.txt
+# Install dependencies (production only for builder)
+RUN npm ci --only=production
+
+# Copy source and build
+COPY tsconfig.json ./
+COPY src ./src
+RUN npm run build
 
 # Stage 2: Runtime
-FROM python:3.12-slim AS runtime
-
-# Create non-root user
-RUN groupadd -r appgroup && useradd -r -g appgroup appuser
+FROM node:20-alpine AS runtime
 
 WORKDIR /app
 
-# Copy only necessary artifacts from builder
-COPY --from=builder /root/.local /home/appuser/.local
-COPY --chown=appuser:appgroup src/ ./src/
-COPY --chown=appuser:appgroup static/ ./static/
-COPY --chown=appuser:appgroup pyproject.toml ./
-COPY --chown=appuser:appgroup requirements.txt ./
+# Create non-root user
+RUN addgroup -g 1000 -S appgroup && \
+    adduser -S appuser -u 1000 -G appgroup
 
-# Set environment
-ENV PATH=/home/appuser/.local/bin:$PATH
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-ENV STATIC_DIR=/app/static
+# Copy built application from builder
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/package*.json ./
 
-# Switch to non-root user
+# Copy public directory for static files
+COPY public/ ./public/
+
+# Set environment variables
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV HOST=0.0.0.0
+
+# Change to non-root user
 USER appuser
+
+# Expose port
+EXPOSE 3000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
+    CMD wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1
 
-EXPOSE 8000
-
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Start the server
+CMD ["node", "dist/app.js"]

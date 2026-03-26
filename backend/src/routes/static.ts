@@ -11,6 +11,9 @@ const staticFileService = new StaticFileService(publicDir);
 
 const router = Router();
 
+// Track server start time for uptime calculation
+const serverStartTime = Date.now();
+
 /**
  * GET /health
  * Health check endpoint
@@ -18,7 +21,8 @@ const router = Router();
 router.get('/health', (_req: Request, res: Response) => {
   res.json({
     status: 'healthy',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    uptime: Math.floor((Date.now() - serverStartTime) / 1000)
   });
 });
 
