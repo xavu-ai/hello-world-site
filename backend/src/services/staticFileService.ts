@@ -4,7 +4,6 @@ import path from 'node:path';
 import { FileNotFoundError, FileAccessError } from '../types/index.js';
 import { validateAndResolvePath, isPathSafe } from '../utils/pathValidator.js';
 import { getMimeType } from '../middleware/mimeTypes.js';
-import logger from '../utils/logger.js';
 
 const statAsync = promisify(stat);
 const readFileAsync = promisify(readFile);

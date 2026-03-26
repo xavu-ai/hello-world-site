@@ -1,14 +1,9 @@
 import { Router, Request, Response } from 'express';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import config from '../config/server.js';
 import { StaticFileService } from '../services/staticFileService.js';
-import { getMimeType } from '../middleware/mimeTypes.js';
 import { FileNotFoundError } from '../types/index.js';
 import logger from '../utils/logger.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 // Initialize service with public directory
 const publicDir = path.resolve(config.publicDir);

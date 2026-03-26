@@ -21,7 +21,7 @@ class Logger {
   private level: LogLevel;
   private readonly levels = ['DEBUG', 'INFO', 'WARN', 'ERROR'] as const;
 
-  constructor(minLevel: string = 'info') {
+  constructor() {
     const envLevel = (process.env.LOG_LEVEL || 'info').toLowerCase();
     this.level = this.parseLevel(envLevel);
   }
@@ -92,17 +92,18 @@ class Logger {
 
   // Child logger with preset metadata
   child(meta: object): Logger {
-    const child = new Logger();
-    child.level = this.level;
+    const childLogger = new Logger();
+    childLogger.level = this.level;
     return {
       debug: (msg: string, m?: object) => this.debug(msg, { ...meta, ...m }),
       info: (msg: string, m?: object) => this.info(msg, { ...meta, ...m }),
       warn: (msg: string, m?: object) => this.warn(msg, { ...meta, ...m }),
       error: (msg: string, m?: object) => this.error(msg, { ...meta, ...m }),
       http: (msg: string, m?: object) => this.http(msg, { ...meta, ...m }),
-      child: () => child,
-      level: child.level
-    } as Logger;
+      child: (_meta: object) => childLogger.child({ ...meta, ..._meta }),
+      level: childLogger.level,
+      setLevel: (l: string) => childLogger.setLevel(l)
+    } as unknown as Logger;
   }
 
   setLevel(level: string): void {
@@ -111,6 +112,6 @@ class Logger {
 }
 
 // Export a singleton instance
-const logger = new Logger(process.env.LOG_LEVEL || 'info');
+const logger = new Logger();
 export default logger;
 export { Logger };

@@ -1,15 +1,11 @@
 import express, { Express } from 'express';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import compression from 'compression';
 import config from './config/server.js';
 import { securityHeaders, cachingHeaders, corsHeaders, removePoweredBy } from './middleware/securityHeaders.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import staticRoutes from './routes/static.js';
 import logger from './utils/logger.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 // Create Express application
 const app: Express = express();

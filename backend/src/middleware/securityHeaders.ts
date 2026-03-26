@@ -6,7 +6,7 @@ import helmet from 'helmet';
  */
 export function securityHeaders(_req: Request, res: Response, next: NextFunction): void {
   // Use helmet for comprehensive security headers
-  helmet()(null, res, next);
+  helmet()(_req, res, next);
 }
 
 /**
@@ -38,7 +38,7 @@ export function cachingHeaders(req: Request, res: Response, next: NextFunction):
 /**
  * Apply CORS headers (if needed in future)
  */
-export function corsHeaders(req: Request, res: Response, next: NextFunction): void {
+export function corsHeaders(_req: Request, res: Response, next: NextFunction): void {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');

@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { AppError, FileNotFoundError, InvalidPathError, FileAccessError, ServerError } from '../types/index.js';
+import { AppError } from '../types/index.js';
 import logger from '../utils/logger.js';
 import config from '../config/server.js';
 
@@ -13,9 +13,8 @@ export function errorHandler(
   _next: NextFunction
 ): void {
   // Log the error
-  logger.error({
+  logger.error(err.message, {
     error: err.name,
-    message: err.message,
     path: req.path,
     method: req.method,
     stack: config.isProduction ? undefined : err.stack
@@ -28,8 +27,8 @@ export function errorHandler(
   }
 
   // Handle Express built-in errors
-  if (err.statusCode) {
-    res.status(err.statusCode).json({
+  if ((err as unknown as { statusCode?: number }).statusCode) {
+    res.status((err as unknown as { statusCode: number }).statusCode).json({
       error: err.name,
       message: err.message,
       code: 'EXPRESS_ERROR',
