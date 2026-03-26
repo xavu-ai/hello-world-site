@@ -1,18 +1,20 @@
-"""Custom exceptions for the static file server."""
+from fastapi import HTTPException
 
 
-class PathTraversalError(Exception):
-    """Raised when a path traversal attack is detected."""
-
-    def __init__(self, message: str = "Access denied"):
-        self.message = message
-        super().__init__(self.message)
+class StaticFileError(HTTPException):
+    pass
 
 
-class FileNotFoundError(Exception):
-    """Raised when a requested file is not found."""
-
+class FileNotFoundError(StaticFileError):
     def __init__(self, path: str):
-        self.path = path
-        self.message = f"File not found: {path}"
-        super().__init__(self.message)
+        super().__init__(status_code=404, detail=f"File not found: {path}")
+
+
+class DirectoryTraversalError(StaticFileError):
+    def __init__(self):
+        super().__init__(status_code=403, detail="Access denied")
+
+
+class InvalidPathError(StaticFileError):
+    def __init__(self):
+        super().__init__(status_code=400, detail="Invalid path")

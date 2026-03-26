@@ -1,30 +1,45 @@
 # Stage 1: Builder
-FROM node:20-alpine AS builder
+FROM python:3.12-slim AS builder
 
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm ci --only=production
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir --user -r requirements.txt
 
 # Stage 2: Runtime
-FROM node:20-alpine
+FROM python:3.12-slim AS runtime
+
+# Create non-root user
+RUN groupadd -r appgroup && useradd -r -g appgroup appuser
 
 WORKDIR /app
 
-RUN addgroup -g 1000 -S nodejs && adduser -S node -u 1000
+# Copy only necessary artifacts from builder
+COPY --from=builder /root/.local /home/appuser/.local
+COPY --chown=appuser:appgroup src/ ./src/
+COPY --chown=appuser:appgroup static/ ./static/
+COPY --chown=appuser:appgroup pyproject.toml ./
+COPY --chown=appuser:appgroup requirements.txt ./
 
-COPY --from=builder --chown=node:nodejs /app/node_modules ./node_modules
-COPY --chown=node:nodejs . .
+# Set environment
+ENV PATH=/home/appuser/.local/bin:$PATH
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV STATIC_DIR=/app/static
 
-USER node
+# Switch to non-root user
+USER appuser
 
-EXPOSE 3000
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
 
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"
+EXPOSE 8000
 
-ENV NODE_ENV=production
-ENV PORT=3000
-ENV HOST=0.0.0.0
-
-CMD ["node", "src/server.js"]
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]

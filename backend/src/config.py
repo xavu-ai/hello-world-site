@@ -1,43 +1,18 @@
-"""Configuration settings for the static file server."""
-
+from pydantic_settings import BaseSettings
 from functools import lru_cache
-from pathlib import Path
-from typing import Optional
-
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing import List
 
 
 class Settings(BaseSettings):
-    """Application settings with environment variable support."""
+    ENV: str = "development"
+    STATIC_DIR: str = "static"
+    ALLOWED_HOSTS: List[str] = ["*"]
+    LOG_LEVEL: str = "INFO"
 
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        case_sensitive=False,
-    )
-
-    # Server settings
-    host: str = "0.0.0.0"
-    port: int = 3000
-    reload: bool = False
-
-    # Static files settings
-    static_dir: Path = Path("/app/static")
-    static_url: str = "/static"
-
-    # CORS settings (if needed)
-    cors_origins: list[str] = ["*"]
-
-    # Storage settings
-    storage_path: Path = Path("/app/storage")
-    max_file_size: int = 104857600  # 100MB
-    allowed_types: str = "image/*,application/pdf,text/*"
-
-    # Database settings
-    database_url: Optional[str] = None
+    class Config:
+        env_file = ".env"
 
 
-@lru_cache
+@lru_cache()
 def get_settings() -> Settings:
-    """Get cached settings instance."""
     return Settings()
