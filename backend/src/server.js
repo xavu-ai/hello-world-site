@@ -1,62 +1,137 @@
-import express from 'express';
-import compression from 'compression';
-import morgan from 'morgan';
-import config from './config/config.js';
-import { applySecurityHeaders, applyCachingHeaders, applyHttpsRedirect } from './middleware/securityHeaders.js';
-import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
-import staticRoutes from './routes/staticRoutes.js';
-import logger from './utils/logger.js';
+const express = require('express');
+const helmet = require('helmet');
+const compression = require('compression');
 
-const app = express();
+const { createCorrelationIdMiddleware } = require('./middleware/correlationId');
+const { createPathTraversalMiddleware } = require('./middleware/pathTraversal');
+const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
+const { staticFileLimiter } = require('./middleware/rateLimit');
+const { createLogger } = require('./utils/logger');
+const healthRoutes = require('./routes/health');
+const { createStaticRouter } = require('./routes/static');
 
-app.use(compression());
-app.use(morgan('combined', { stream: { write: (message) => logger.http(message.trim()) } }));
+/**
+ * Create and configure Express application
+ * @param {Object} config - Application configuration
+ * @param {string} config.staticDir - Directory for static files
+ * @param {string} config.indexFile - Index file name for SPA fallback
+ * @param {string} config.port - Server port
+ * @param {string} config.env - Environment (development, production)
+ * @returns {Object} Express app instance
+ */
+function createApp(config = {}) {
+  const {
+    staticDir = 'public',
+    indexFile = 'index.html',
+    port = process.env.PORT || 3000,
+    env = process.env.NODE_ENV || 'development'
+  } = config;
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+  const app = express();
 
-applyHttpsRedirect(app);
-applySecurityHeaders(app);
-applyCachingHeaders(app);
+  // Trust proxy for accurate IP logging
+  app.set('trust proxy', 1);
 
-app.use(staticRoutes);
+  // Middleware registration ORDER:
+  // 1. Correlation ID (must be first to include in all logs)
+  app.use(createCorrelationIdMiddleware());
 
-app.use(notFoundHandler);
-app.use(errorHandler);
+  // 2. Path traversal protection
+  app.use(createPathTraversalMiddleware({ staticDir }));
 
-let server;
+  // 3. Security headers
+  app.use(helmet());
 
-function startServer() {
-  return new Promise((resolve) => {
-    server = app.listen(config.port, config.host, () => {
-      logger.info(`Server running at http://${config.host}:${config.port}`);
-      logger.info(`Environment: ${config.env}`);
-      resolve();
+  // 4. Compression
+  app.use(compression());
+
+  // 5. Body parsing (for future API routes)
+  app.use(express.json());
+  app.use(express.urlencoded({ extended: true }));
+
+  // 6. Request logging
+  app.use(createLogger({ format: 'combined' }));
+
+  // 7. Health check routes (no rate limiting needed)
+  app.use(healthRoutes);
+
+  // 8. Rate limiting for static files
+  app.use('/static', staticFileLimiter);
+
+  // 9. Static file serving with SPA fallback
+  app.use(createStaticRouter({ staticDir, indexFile }));
+
+  // 10. 404 handler for unmatched routes
+  app.use(notFoundHandler);
+
+  // 11. Global error handler (must be last)
+  app.use(errorHandler);
+
+  return app;
+}
+
+// Create default app instance for testing
+const app = createApp({
+  staticDir: process.env.STATIC_DIR || 'public',
+  indexFile: process.env.INDEX_FILE || 'index.html',
+  port: process.env.PORT || 3000,
+  env: process.env.NODE_ENV || 'development'
+});
+
+/**
+ * Start the server with graceful shutdown
+ * @param {Object} config - Application configuration
+ * @returns {Object} Server instance
+ */
+function startServer(config = {}) {
+  const app = createApp(config);
+  const port = config.port || process.env.PORT || 3000;
+
+  const server = app.listen(port, () => {
+    console.log(`[${new Date().toISOString()}] Server started`);
+    console.log(`Environment: ${config.env || process.env.NODE_ENV || 'development'}`);
+    console.log(`Listening on port: ${port}`);
+    console.log(`Static directory: ${config.staticDir || 'public'}`);
+  });
+
+  // Graceful shutdown handlers
+  const shutdown = (signal) => {
+    console.log(`\n[${new Date().toISOString()}] Received ${signal}. Starting graceful shutdown...`);
+
+    server.close((err) => {
+      if (err) {
+        console.error(`[${new Date().toISOString()}] Error during shutdown:`, err);
+        process.exit(1);
+      }
+      console.log(`[${new Date().toISOString()}] Server closed gracefully`);
+      process.exit(0);
     });
+
+    // Force shutdown after 30 seconds
+    setTimeout(() => {
+      console.error(`[${new Date().toISOString()}] Forced shutdown after timeout`);
+      process.exit(1);
+    }, 30000);
+  };
+
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
+
+  return server;
+}
+
+// Start server if run directly
+if (require.main === module) {
+  startServer({
+    staticDir: process.env.STATIC_DIR || 'public',
+    indexFile: process.env.INDEX_FILE || 'index.html',
+    port: process.env.PORT || 3000,
+    env: process.env.NODE_ENV || 'development'
   });
 }
 
-function gracefulShutdown(signal) {
-  logger.info(`${signal} received. Starting graceful shutdown...`);
-  if (server) {
-    server.close(() => {
-      logger.info('HTTP server closed');
-      process.exit(0);
-    });
-    setTimeout(() => {
-      logger.error('Forced shutdown after timeout');
-      process.exit(1);
-    }, 10000);
-  } else {
-    process.exit(0);
-  }
-}
-
-process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-
-if (process.env.NODE_ENV !== 'test') {
-  startServer();
-}
-
-export { app, startServer };
+module.exports = {
+  app,
+  createApp,
+  startServer
+};

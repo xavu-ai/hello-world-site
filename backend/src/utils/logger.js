@@ -1,36 +1,36 @@
-import winston from 'winston';
-import config from '../config/config.js';
+const morgan = require('morgan');
 
-const { combine, timestamp, printf, colorize, errors } = winston.format;
+/**
+ * Create configured Morgan logger
+ * Uses combined format for production logging
+ * @param {Object} options
+ * @param {string} options.format - Morgan format string
+ * @param {Object} options.options - Morgan stream options
+ * @returns {Function} Morgan middleware
+ */
+function createLogger(options = {}) {
+  const {
+    format = 'combined',
+    options: streamOptions = {}
+  } = options;
 
-const logFormat = printf(({ level, message, timestamp, stack, ...metadata }) => {
-  let log = `${timestamp} [${level}]: ${message}`;
-  if (Object.keys(metadata).length > 0) {
-    log += ` ${JSON.stringify(metadata)}`;
-  }
-  if (stack) {
-    log += `\n${stack}`;
-  }
-  return log;
-});
+  // Custom token for correlation ID
+  morgan.token('request-id', (req) => req.correlationId || '-');
 
-const logger = winston.createLogger({
-  level: config.logLevel,
-  format: combine(
-    errors({ stack: true }),
-    timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-    logFormat
-  ),
-  transports: [
-    new winston.transports.Console({
-      format: combine(
-        colorize(),
-        timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-        logFormat
-      )
-    })
-  ],
-  exitOnError: false
-});
+  // Use combined format with correlation ID
+  const logFormat = format === 'combined'
+    ? ':request-id - :remote-addr - :method :url :status :res[content-length] - :response-time ms'
+    : format;
 
-export default logger;
+  return morgan(logFormat, {
+    ...streamOptions,
+    // Skip health check logging if desired
+    skip: (req) => {
+      return false; // Log all requests
+    }
+  });
+}
+
+module.exports = {
+  createLogger
+};
