@@ -47,27 +47,54 @@ function createStaticRouter(options = {}) {
     }
   });
 
-  // SPA fallback for root
-  router.get('/', async (req, res, next) => {
+  // SPA fallback for root and all unmatched routes
+  router.get('*', async (req, res, next) => {
     try {
-      const indexPath = path.join(staticDir, indexFile);
+      // Skip health check and API routes
+      if (req.path === '/health' || req.path.startsWith('/api')) {
+        return next();
+      }
 
-      // Check if index exists
-      await fs.access(indexPath);
+      // Get the requested path
+      let requestedPath = req.path;
 
-      res.sendFile(indexFile, { root: staticDir });
+      // If root, serve index.html
+      if (requestedPath === '/') {
+        requestedPath = indexFile;
+      } else {
+        // Remove leading slash and try to find the file
+        requestedPath = requestedPath.substring(1);
+      }
+
+      const fullPath = path.join(staticDir, requestedPath);
+
+      // Security check: ensure the resolved path is within staticDir
+      const absoluteStaticDir = path.resolve(staticDir);
+      const absoluteFullPath = path.resolve(fullPath);
+
+      if (!absoluteFullPath.startsWith(absoluteStaticDir + path.sep)) {
+        return next(new NotFoundError('File not found'));
+      }
+
+      // Check if file exists
+      await fs.access(fullPath);
+
+      // Send the file with root option for relative paths
+      res.sendFile(requestedPath, { root: staticDir });
     } catch (err) {
       if (err.code === 'ENOENT') {
-        next(new NotFoundError('Index file not found'));
+        // File not found, try serving index.html for SPA fallback
+        try {
+          const indexPath = path.join(staticDir, indexFile);
+          await fs.access(indexPath);
+          res.sendFile(indexFile, { root: staticDir });
+        } catch {
+          next(new NotFoundError('Index file not found'));
+        }
       } else {
         next(err);
       }
     }
-  });
-
-  // 404 for /api/* routes
-  router.get('/api/*', (req, res, next) => {
-    next(new NotFoundError('API routes not configured'));
   });
 
   return router;

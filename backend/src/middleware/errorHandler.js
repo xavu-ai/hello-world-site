@@ -39,8 +39,8 @@ function errorHandler(err, req, res, next) {
   let message = err.message || 'Internal server error';
   let errorName = err.name || 'Error';
 
-  // Get request ID from correlation ID middleware
-  const requestId = req.correlationId || 'unknown';
+  // Get correlation ID from correlation ID middleware
+  const correlationId = req.correlationId || 'unknown';
 
   // Get timestamp
   const timestamp = new Date().toISOString();
@@ -48,7 +48,7 @@ function errorHandler(err, req, res, next) {
   // Prepare response
   const response = {
     error: message,
-    requestId,
+    correlationId,
     timestamp
   };
 
@@ -59,7 +59,7 @@ function errorHandler(err, req, res, next) {
 
   // Log error (using console for simplicity, would use logger in production)
   console.error(`[${timestamp}] ${errorName}: ${message}`, {
-    requestId,
+    correlationId,
     statusCode,
     path: req.path,
     method: req.method,
@@ -73,12 +73,12 @@ function errorHandler(err, req, res, next) {
  * 404 handler for unmatched routes
  */
 function notFoundHandler(req, res) {
-  const requestId = req.correlationId || 'unknown';
+  const correlationId = req.correlationId || 'unknown';
   const timestamp = new Date().toISOString();
 
   res.status(404).json({
     error: 'Not found',
-    requestId,
+    correlationId,
     timestamp
   });
 }
