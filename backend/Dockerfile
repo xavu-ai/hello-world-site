@@ -14,7 +14,7 @@ COPY --chown=nodejs:nodejs . .
 
 ENV NODE_ENV=production
 ENV PORT=3000
-ENV PUBLIC_DIR=/app/public
+ENV STATIC_DIR=./public
 
 USER nodejs
 EXPOSE 3000
