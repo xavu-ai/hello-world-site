@@ -1,38 +1,33 @@
-# Stage 1: Builder
+# Build stage
 FROM node:20-alpine AS builder
+
 WORKDIR /app
 
-# Copy package files
+# Copy package files for layer caching
 COPY package*.json ./
 
-# Install dependencies
 RUN npm ci --only=production
 
-# Stage 2: Production
-FROM node:20-alpine-slim
-
-# Create non-root user
-RUN addgroup -g 1000 -S appgroup && \
-    adduser -u 1000 -S appuser -G appgroup
+# Production stage
+FROM node:20-alpine
 
 WORKDIR /app
 
-# Copy node_modules from builder
-COPY --from=builder --chown=appuser:appgroup /app/node_modules ./node_modules
+# Copy dependencies from builder
+COPY --from=builder /app/node_modules ./node_modules
 
 # Copy application files
-COPY --chown=appuser:appgroup server.js ./
-COPY --chown=appuser:appgroup public/ ./public/
+COPY --chown=node:1000 . .
 
-# Switch to non-root user
-USER appuser
+# Switch to non-root user (node user already exists in node:20-alpine with uid 1000)
+USER node
 
-# Expose port from environment
-EXPOSE ${PORT:-3000}
+# Expose port
+EXPOSE 3000
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:${PORT:-3000}/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1
 
-# Start server
+# Start application
 CMD ["node", "server.js"]

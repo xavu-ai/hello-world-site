@@ -1,175 +1,137 @@
-import express from 'express';
-import compression from 'compression';
-import helmet from 'helmet';
-import morgan from 'morgan';
-import { createServer } from 'http';
-import { join, extname } from 'path';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
-import fs from 'fs';
+const express = require('express');
+const helmet = require('helmet');
+const compression = require('compression');
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const { createCorrelationIdMiddleware } = require('./middleware/correlationId');
+const { createPathTraversalMiddleware } = require('./middleware/pathTraversal');
+const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
+const { staticFileLimiter } = require('./middleware/rateLimit');
+const { createLogger } = require('./utils/logger');
+const healthRoutes = require('./routes/health');
+const { createStaticRouter } = require('./routes/static');
 
-// Load environment variables
-import dotenv from 'dotenv';
-dotenv.config();
+/**
+ * Create and configure Express application
+ * @param {Object} config - Application configuration
+ * @param {string} config.staticDir - Directory for static files
+ * @param {string} config.indexFile - Index file name for SPA fallback
+ * @param {string} config.port - Server port
+ * @param {string} config.env - Environment (development, production)
+ * @returns {Object} Express app instance
+ */
+function createApp(config = {}) {
+  const {
+    staticDir = 'public',
+    indexFile = 'index.html',
+    port = process.env.PORT || 3000,
+    env = process.env.NODE_ENV || 'development'
+  } = config;
 
-const app = express();
-const PORT = process.env.PORT || 3000;
-const NODE_ENV = process.env.NODE_ENV || 'development';
-const PUBLIC_DIR = join(__dirname, 'public');
+  const app = express();
 
-// Correlation ID generator
-const generateCorrelationId = () => {
-  return `corr-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
-};
+  // Trust proxy for accurate IP logging
+  app.set('trust proxy', 1);
 
-// Security headers
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      scriptSrc: ["'self'"],
-      imgSrc: ["'self'", "data:"],
-      connectSrc: ["'self'"],
-    },
-  },
-  crossOriginEmbedderPolicy: false,
-}));
+  // Middleware registration ORDER:
+  // 1. Correlation ID (must be first to include in all logs)
+  app.use(createCorrelationIdMiddleware());
 
-// Compression middleware
-app.use(compression());
+  // 2. Path traversal protection
+  app.use(createPathTraversalMiddleware({ staticDir }));
 
-// Request logging in development
-if (NODE_ENV === 'development') {
-  app.use(morgan('dev'));
-} else {
-  app.use(morgan('combined'));
+  // 3. Security headers
+  app.use(helmet());
+
+  // 4. Compression
+  app.use(compression());
+
+  // 5. Body parsing (for future API routes)
+  app.use(express.json());
+  app.use(express.urlencoded({ extended: true }));
+
+  // 6. Request logging
+  app.use(createLogger({ format: 'combined' }));
+
+  // 7. Health check routes (no rate limiting needed)
+  app.use(healthRoutes);
+
+  // 8. Rate limiting for static files
+  app.use('/static', staticFileLimiter);
+
+  // 9. Static file serving with SPA fallback
+  app.use(createStaticRouter({ staticDir, indexFile }));
+
+  // 10. 404 handler for unmatched routes
+  app.use(notFoundHandler);
+
+  // 11. Global error handler (must be last)
+  app.use(errorHandler);
+
+  return app;
 }
 
-// Parse JSON and URL-encoded bodies
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+// Create default app instance for testing
+const app = createApp({
+  staticDir: process.env.STATIC_DIR || 'public',
+  indexFile: process.env.INDEX_FILE || 'index.html',
+  port: process.env.PORT || 3000,
+  env: process.env.NODE_ENV || 'development'
 });
 
-// Static file serving with fallthrough for SPA routing
-app.use(express.static(PUBLIC_DIR, {
-  maxAge: NODE_ENV === 'production' ? '1d' : 0,
-  etag: true,
-  lastModified: true,
-  setHeaders: (res, filePath) => {
-    // Set appropriate headers
-    const ext = extname(filePath).toLowerCase();
-    const mimeTypes = {
-      '.html': 'text/html',
-      '.css': 'text/css',
-      '.js': 'application/javascript',
-      '.json': 'application/json',
-      '.png': 'image/png',
-      '.jpg': 'image/jpeg',
-      '.jpeg': 'image/jpeg',
-      '.gif': 'image/gif',
-      '.svg': 'image/svg+xml',
-      '.ico': 'image/x-icon',
-      '.txt': 'text/plain',
-      '.woff': 'font/woff',
-      '.woff2': 'font/woff2',
-    };
-    if (mimeTypes[ext]) {
-      res.setHeader('Content-Type', mimeTypes[ext]);
-    }
-  },
-}));
+/**
+ * Start the server with graceful shutdown
+ * @param {Object} config - Application configuration
+ * @returns {Object} Server instance
+ */
+function startServer(config = {}) {
+  const app = createApp(config);
+  const port = config.port || process.env.PORT || 3000;
 
-// SPA fallback - serve index.html for any non-API routes
-app.use((req, res, next) => {
-  // Skip API routes and existing files
-  if (req.path.startsWith('/api') || req.path.startsWith('/health')) {
-    return next();
-  }
-
-  // Check if the request is for an existing file
-  const requestedPath = join(PUBLIC_DIR, req.path);
-  if (fs.existsSync(requestedPath) && fs.statSync(requestedPath).isFile()) {
-    return next();
-  }
-
-  // Serve index.html for SPA routing
-  res.sendFile(join(PUBLIC_DIR, 'index.html'));
-});
-
-// Path traversal protection middleware
-app.use((req, res, next) => {
-  const requestedPath = join(PUBLIC_DIR, req.path);
-  if (!requestedPath.startsWith(PUBLIC_DIR)) {
-    const correlationId = generateCorrelationId();
-    console.error(`[${correlationId}] Path traversal attempt blocked: ${req.path}`);
-    return res.status(400).json({
-      error: 'ValidationError',
-      message: 'Invalid request path',
-      correlationId,
-    });
-  }
-  next();
-});
-
-// Error handling middleware
-app.use((err, req, res, next) => {
-  const correlationId = generateCorrelationId();
-  console.error(`[${correlationId}] Error:`, err);
-
-  if (err.status === 404) {
-    return res.status(404).json({
-      error: 'NotFoundError',
-      message: 'Resource not found',
-      correlationId,
-    });
-  }
-
-  res.status(err.status || 500).json({
-    error: 'InternalServerError',
-    message: NODE_ENV === 'production' ? 'An unexpected error occurred' : err.message,
-    correlationId,
+  const server = app.listen(port, () => {
+    console.log(`[${new Date().toISOString()}] Server started`);
+    console.log(`Environment: ${config.env || process.env.NODE_ENV || 'development'}`);
+    console.log(`Listening on port: ${port}`);
+    console.log(`Static directory: ${config.staticDir || 'public'}`);
   });
-});
-
-// Only start the server if this file is run directly (not imported)
-const isMainModule = import.meta.url === `file://${process.argv[1]}`;
-if (isMainModule) {
-  const server = createServer(app);
 
   // Graceful shutdown handlers
-  const gracefulShutdown = (signal) => {
-    console.log(`\n${signal} received. Starting graceful shutdown...`);
-    
-    server.close(() => {
-      console.log('HTTP server closed. Exiting process.');
+  const shutdown = (signal) => {
+    console.log(`\n[${new Date().toISOString()}] Received ${signal}. Starting graceful shutdown...`);
+
+    server.close((err) => {
+      if (err) {
+        console.error(`[${new Date().toISOString()}] Error during shutdown:`, err);
+        process.exit(1);
+      }
+      console.log(`[${new Date().toISOString()}] Server closed gracefully`);
       process.exit(0);
     });
 
-    // Force close after 10 seconds
+    // Force shutdown after 30 seconds
     setTimeout(() => {
-      console.error('Could not close connections in time, forcefully shutting down');
+      console.error(`[${new Date().toISOString()}] Forced shutdown after timeout`);
       process.exit(1);
-    }, 10000);
+    }, 30000);
   };
 
-  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
 
-  // Start server
-  server.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-    console.log(`Environment: ${NODE_ENV}`);
-    console.log(`Serving static files from: ${PUBLIC_DIR}`);
+  return server;
+}
+
+// Start server if run directly
+if (require.main === module) {
+  startServer({
+    staticDir: process.env.STATIC_DIR || 'public',
+    indexFile: process.env.INDEX_FILE || 'index.html',
+    port: process.env.PORT || 3000,
+    env: process.env.NODE_ENV || 'development'
   });
 }
 
-export { app };
+module.exports = {
+  app,
+  createApp,
+  startServer
+};

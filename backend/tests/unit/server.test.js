@@ -1,4 +1,4 @@
-import { jest, describe, it, expect, beforeAll, afterAll } from '@jest/globals';
+const { describe, it, expect } = require('@jest/globals');
 
 describe('Server Unit Tests', () => {
   describe('Environment Configuration', () => {
@@ -8,7 +8,6 @@ describe('Server Unit Tests', () => {
     });
 
     it('should recognize NODE_ENV in test mode', () => {
-      // Jest sets NODE_ENV to 'test' automatically
       const NODE_ENV = process.env.NODE_ENV || 'development';
       expect(NODE_ENV).toBeTruthy();
       expect(['development', 'production', 'test']).toContain(NODE_ENV);
@@ -109,15 +108,11 @@ describe('Server Unit Tests', () => {
       
       const isPathEscape = (path) => {
         const resolved = PUBLIC_DIR + path;
-        // If joining the path creates a different base, it's an escape attempt
         return resolved !== PUBLIC_DIR + path.replace(/\.\.\//g, 'BAD/');
       };
 
-      // These paths try to escape with ..
       expect(isPathEscape('/../etc/passwd')).toBe(true);
       expect(isPathEscape('/../../etc/passwd')).toBe(true);
-      
-      // Normal paths don't escape
       expect(isPathEscape('/index.html')).toBe(false);
       expect(isPathEscape('/css/styles.css')).toBe(false);
     });

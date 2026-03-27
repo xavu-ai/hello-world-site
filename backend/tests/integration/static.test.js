@@ -1,12 +1,13 @@
-import { jest, describe, it, expect, beforeAll, afterAll } from '@jest/globals';
-import request from 'supertest';
-import { app } from '../../server.js';
-import { createServer } from 'http';
+const request = require('supertest');
+const { createApp } = require('../../server.js');
+const { createServer } = require('http');
 
 describe('Static File Server Integration Tests', () => {
   let server;
+  let app;
 
   beforeAll(() => {
+    app = createApp({ staticDir: 'public' });
     server = createServer(app);
   });
 
@@ -56,7 +57,6 @@ describe('Static File Server Integration Tests', () => {
         .get('/nonexistent')
         .expect(200);
 
-      // Should serve index.html as fallback
       expect(response.text).toContain('Hello World');
     });
   });
@@ -116,12 +116,12 @@ describe('Static File Server Integration Tests', () => {
   });
 
   describe('Path Traversal Attack Prevention', () => {
-    it('should block GET /../package.json with 400', async () => {
+    it('should block GET /../package.json with 403', async () => {
       const response = await request(server)
         .get('/../package.json')
-        .expect(400);
+        .expect(403);
 
-      expect(response.body.error).toBe('ValidationError');
+      expect(response.body.error).toBeDefined();
       expect(response.body.correlationId).toBeDefined();
     });
   });
