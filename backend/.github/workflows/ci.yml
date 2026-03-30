@@ -1,0 +1,47 @@
+name: Backend CI
+
+on:
+  pull_request:
+    paths:
+      - "backend/**"
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/**"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Sync dependencies
+        working-directory: backend
+        run: uv sync --all-groups
+
+      - name: Run ruff check
+        working-directory: backend
+        run: uv run ruff check .
+
+      - name: Run pytest
+        working-directory: backend
+        run: uv run pytest -v
+
+  docker:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        working-directory: backend
+        run: docker build -t openclaw-backend .
+
+      - name: Run Docker container
+        working-directory: backend
+        run: docker run -d -p 6100:6100 --env-file .env openclaw-backend
