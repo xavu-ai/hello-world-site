@@ -1,9 +1,7 @@
-version: '3.8'
-
 services:
   backend:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile
     container_name: hello-world-backend
     ports:
@@ -12,7 +10,7 @@ services:
       - PORT=3000
       - NODE_ENV=development
     volumes:
-      - ./backend:/app/backend:ro
+      - ./backend/dist:/app/dist:ro
       - ./backend/public:/app/public:ro
     restart: unless-stopped
     healthcheck:

@@ -8,7 +8,7 @@ RUN pip install uv
 
 # Copy source and dependencies
 COPY pyproject.toml ./
-COPY src/ ./src/
+COPY app/ ./app/
 
 # Sync dependencies
 RUN uv sync --frozen --no-dev
@@ -32,4 +32,6 @@ USER 1000
 
 EXPOSE 6100
 
-CMD ["uv", "run", "uvicorn", "src.app.main:app", "--host", "0.0.0.0", "--port", "6100"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:6100/healthz')"
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "6100"]

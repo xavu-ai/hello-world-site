@@ -1,3 +1,8 @@
+# ============================================================
+# Standard .gitignore for OpenClaw AI team project repos
+# Copy this to the root of every project repo as .gitignore
+# ============================================================
+
 # ---- Python ----
 __pycache__/
 *.py[cod]
@@ -50,6 +55,65 @@ htmlcov/
 celerybeat-schedule
 celerybeat.pid
 
+# ---- Node.js / Frontend ----
+node_modules/
+.next/
+out/
+.nuxt/
+.cache/
+.turbo/
+.vercel/
+.output/
+*.tsbuildinfo
+.eslintcache
+.stylelintcache
+.parcel-cache/
+.svelte-kit/
+.docusaurus/
+storybook-static/
+.storybook/out/
+
+# Next.js specific
+.next/
+.env*.local
+next-env.d.ts
+
+# Build output
+dist/
+build/
+.build/
+coverage/
+*.lcov
+
+# Package manager
+pnpm-debug.log*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-store/
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+lerna-debug.log*
+
+# ---- Docker ----
+docker-compose.override.yml
+*.pid
+
+# ---- IDE / Editor ----
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+*.sublime-project
+*.sublime-workspace
+*.code-workspace
+
 # ---- Environment / Secrets ----
 .env
 .env.local
@@ -59,6 +123,15 @@ celerybeat.pid
 *.pem
 *.key
 *.cert
+
+# ---- OS ----
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+$RECYCLE.BIN/
 
 # ---- Lock files ----
 uv.lock

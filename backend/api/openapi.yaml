@@ -1,0 +1,102 @@
+openapi: 3.0.0
+info:
+  title: Static File Server
+  version: 1.0.0
+  description: API for serving static files
+paths:
+  /health:
+    get:
+      summary: Health check
+      description: Returns the health status of the server
+      responses:
+        '200':
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: healthy
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: '2024-01-01T00:00:00Z'
+                  uptime:
+                    type: integer
+                    description: Server uptime in seconds
+  /{path}:
+    get:
+      summary: Serve static file
+      description: Returns the requested static file
+      parameters:
+        - name: path
+          in: path
+          required: true
+          description: Path to the static file
+          schema:
+            type: string
+      responses:
+        '200':
+          description: File content
+          content:
+            '*/*':
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: File not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: FileNotFoundError
+                  message:
+                    type: string
+                    example: File not found
+                  code:
+                    type: string
+                    example: FILE_NOT_FOUND
+                  timestamp:
+                    type: string
+                    format: date-time
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: InvalidPathError
+                  message:
+                    type: string
+                    example: Invalid path
+                  code:
+                    type: string
+                    example: INVALID_PATH
+                  timestamp:
+                    type: string
+                    format: date-time
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: InvalidPathError
+                  message:
+                    type: string
+                  code:
+                    type: string
+                  timestamp:
+                    type: string
+                    format: date-time
