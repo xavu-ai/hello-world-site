@@ -1,41 +1,43 @@
-"""FastAPI main entry point."""
-from collections.abc import AsyncGenerator
+"""FastAPI application entry point."""
 from contextlib import asynccontextmanager
+from typing import AsyncIterator
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.v1.router import api_router
-from app.core.config import settings
-from app.db.base import Base
-from app.db.session import async_engine
-
-
-async def init_db() -> None:
-    """Initialize database tables."""
-    async with async_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+from app.config import settings
+from app.database import engine
+from app.routers import api_router
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    """Application lifespan handler."""
-    await init_db()
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """Lifespan events for database startup and shutdown."""
+    # Startup
     yield
-    await async_engine.dispose()
+    # Shutdown
+    await engine.dispose()
 
 
 app = FastAPI(
-    title=settings.PROJECT_NAME,
-    openapi_url=f"{settings.API_V1_PREFIX}/openapi.json",
-    docs_url=f"{settings.API_V1_PREFIX}/docs",
-    redoc_url=f"{settings.API_V1_PREFIX}/redoc",
+    title="OpenClaw API",
+    description="Backend API for OpenClaw AI team",
+    version="0.1.0",
     lifespan=lifespan,
 )
 
-app.include_router(api_router, prefix=settings.API_V1_PREFIX)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(api_router)
 
 
-@app.get("/health")
-async def health_check() -> dict[str, str]:
+@app.get("/healthz")
+async def healthz() -> dict[str, str]:
     """Health check endpoint."""
-    return {"status": "healthy"}
+    return {"status": "ok"}

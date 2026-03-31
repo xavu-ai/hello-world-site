@@ -1,5 +1,4 @@
 """Models package."""
-from app.models.github_project import GitHubProject, ProjectState
-from app.models.prompt import Prompt, PromptStatus
+from app.models.timeline import Base, TimelineEntry
 
-__all__ = ["GitHubProject", "ProjectState", "Prompt", "PromptStatus"]
+__all__ = ["Base", "TimelineEntry"]

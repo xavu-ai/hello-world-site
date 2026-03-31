@@ -1,1 +1,1 @@
-"""App package."""
+"""OpenClaw Backend Application."""
